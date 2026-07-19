@@ -1,4 +1,21 @@
+<div align="center">
+
 # remoteok
+
+[![CI](https://github.com/jjuanrivvera/remoteok-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/jjuanrivvera/remoteok-cli/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jjuanrivvera/remoteok-cli)](https://github.com/jjuanrivvera/remoteok-cli/releases/latest)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen)](https://github.com/jjuanrivvera/remoteok-cli/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jjuanrivvera/remoteok-cli.svg)](https://pkg.go.dev/github.com/jjuanrivvera/remoteok-cli)
+[![Go version](https://img.shields.io/github/go-mod/go-version/jjuanrivvera/remoteok-cli)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jjuanrivvera/remoteok-cli)
+[![Built with cliwright](https://img.shields.io/badge/built_with-cliwright-1f6feb)](https://cliwright.jjuanrivvera.com)
+
+**Remote OK jobs from your terminal — search and filter the public jobs feed, agent-friendly output (JSON/YAML/CSV/MCP).**
+
+[Documentation](https://jjuanrivvera.github.io/remoteok-cli/) · [Command reference](https://jjuanrivvera.github.io/remoteok-cli/commands/remoteok/)
+
+</div>
 
 A fast, scriptable, **read-only** command-line client for the [Remote OK](https://remoteok.com)
 jobs API. Built for machines: JSON/YAML/CSV output, an `-o id` mode for piping, a `--jq`
