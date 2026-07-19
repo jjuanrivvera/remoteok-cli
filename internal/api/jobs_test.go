@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,6 +89,57 @@ func TestJobs_SearchCompanySalaryLimit(t *testing.T) {
 	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Limit: 2})
 	require.NoError(t, err)
 	require.Len(t, jobs, 2)
+}
+
+func TestJobs_SinceFilter(t *testing.T) {
+	// Fixture postings: 1001=2026-07-18, 1002=2026-07-17, 1003=2026-07-16 (all UTC).
+	c := newTestClient(t, serveFeed(t, nil))
+
+	// A threshold between the newest and the rest keeps only the recent listing and
+	// drops the older ones.
+	since := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	jobs, _, err := c.Jobs(t.Context(), JobListOptions{Since: since})
+	require.NoError(t, err)
+	require.Len(t, jobs, 1, "only the 2026-07-18 listing clears the threshold")
+	assert.Equal(t, ID("1001"), jobs[0].ID)
+
+	// A boundary exactly on a posting instant is inclusive (>=).
+	since = time.Date(2026, 7, 17, 2, 30, 32, 0, time.UTC)
+	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Since: since})
+	require.NoError(t, err)
+	require.Len(t, jobs, 2)
+	assert.Equal(t, ID("1001"), jobs[0].ID)
+	assert.Equal(t, ID("1002"), jobs[1].ID)
+
+	// A zero Since is a no-op: every listing survives (composes with other filters).
+	jobs, _, err = c.Jobs(t.Context(), JobListOptions{})
+	require.NoError(t, err)
+	require.Len(t, jobs, 3)
+
+	// Since AND tag compose: golang jobs (1001,1003) intersected with posted >= 07-17.
+	jobs, _, err = c.Jobs(t.Context(), JobListOptions{
+		Tags:  []string{"golang"},
+		Since: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC),
+	})
+	require.NoError(t, err)
+	require.Len(t, jobs, 1)
+	assert.Equal(t, ID("1001"), jobs[0].ID)
+}
+
+func TestJobPostedAt(t *testing.T) {
+	// RFC3339 `date` is the primary source.
+	got, ok := jobPostedAt(Job{Date: "2026-07-18T02:30:32+00:00"})
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2026, 7, 18, 2, 30, 32, 0, time.UTC), got.UTC())
+
+	// A garbled `date` falls back to epoch.
+	got, ok = jobPostedAt(Job{Date: "not-a-date", Epoch: Int(1784341832)})
+	require.True(t, ok)
+	assert.Equal(t, int64(1784341832), got.Unix())
+
+	// Neither field usable → not datable.
+	_, ok = jobPostedAt(Job{})
+	assert.False(t, ok)
 }
 
 func TestGetJob(t *testing.T) {

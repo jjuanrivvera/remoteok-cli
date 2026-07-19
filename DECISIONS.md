@@ -55,6 +55,26 @@ deterministic (cliwright GOAL.md §11). Never silently re-decide.
 
 8. **Sort order.** Newest-first by `epoch` (stable sort preserves feed order on ties).
 
+## `--since` posting-date filter (added v0.1.1)
+
+12. **`--since` grammar is shared with the sibling `torre-cli`.** The flag name (`--since`),
+    its alias (`--posted-after`), and the value grammar are IDENTICAL across the fleet for
+    consistency: an absolute date `YYYY-MM-DD`, or a relative window `Nd`/`Nw` (days/weeks)
+    meaning "posted within the last N × unit, from `time.Now()`". An empty value is no filter.
+    Parse errors are actionable and name the exact grammar. Do not diverge the grammar here
+    without changing torre-cli in lockstep.
+
+13. **What instant a listing is compared against.** The filter keys on the listing's `date`
+    (its posting timestamp, DECISIONS §7 — RFC3339 on the live feed). `jobPostedAt` parses
+    `date` as RFC3339 first, then tolerates a bare `YYYY-MM-DD`, and only if `date` is
+    empty/unparseable falls back to the numeric `epoch`. A listing with NO determinable time
+    is **dropped** when `--since` is active (it cannot be proven recent) — the stricter,
+    predictable reading of "posted after X".
+
+14. **Absolute `--since` is start-of-day UTC.** `--since 2026-07-12` parses to
+    `2026-07-12T00:00:00Z`; a same-day posting with any later time-of-day is kept (inclusive
+    `>=`). Comparison is instant-vs-instant, so a timezone-bearing `date` is honored exactly.
+
 ## Architecture decisions (determinism, §11)
 
 9. **Resource pattern — neither pure A nor B.** Remote OK is a *single read-only,

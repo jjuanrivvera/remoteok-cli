@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Job is one Remote OK listing. Field names mirror the API's JSON keys exactly (see
@@ -57,11 +58,12 @@ func isLegal(raw json.RawMessage) bool {
 // relevant results, so the CLI treats client-side filtering as authoritative and only uses
 // ?tags= as a payload optimization when exactly one tag is requested.
 type JobListOptions struct {
-	Tags      []string // ALL must be present on a job (AND), case-insensitive
-	Search    string   // substring over position/company/description/tags, case-insensitive
-	Company   string   // substring over company, case-insensitive
-	MinSalary int64    // keep jobs whose salary_max ≥ this (0 = no filter)
-	Limit     int      // cap the number of returned jobs (0 = no cap)
+	Tags      []string  // ALL must be present on a job (AND), case-insensitive
+	Search    string    // substring over position/company/description/tags, case-insensitive
+	Company   string    // substring over company, case-insensitive
+	MinSalary int64     // keep jobs whose salary_max ≥ this (0 = no filter)
+	Since     time.Time // keep jobs posted on/after this instant (zero = no filter)
+	Limit     int       // cap the number of returned jobs (0 = no cap)
 }
 
 // fetchFeed GETs /api and splits the response into the attribution notice and the jobs,
@@ -164,7 +166,38 @@ func matches(j Job, opts JobListOptions) bool {
 	if opts.Search != "" && !matchesSearch(j, opts.Search) {
 		return false
 	}
+	if !opts.Since.IsZero() {
+		// A job with no determinable posting time cannot be proven recent, so a date
+		// filter drops it rather than leaking a possibly-stale listing through.
+		posted, ok := jobPostedAt(j)
+		if !ok || posted.Before(opts.Since) {
+			return false
+		}
+	}
 	return true
+}
+
+// dateLayouts are the accepted forms of a listing's `date` field. Remote OK's live feed
+// uses RFC3339 (DECISIONS.md §7), but a bare YYYY-MM-DD is tolerated so a date-only value
+// still keys the `--since` filter instead of silently dropping to the epoch fallback.
+var dateLayouts = []string{time.RFC3339, "2006-01-02"}
+
+// jobPostedAt resolves a listing's posting instant. It prefers the `date` string (the field
+// the `--since` filter is documented against) and falls back to the numeric `epoch` so a
+// listing with a missing/garbled `date` is still datable. The bool is false when neither
+// field yields a usable time.
+func jobPostedAt(j Job) (time.Time, bool) {
+	if j.Date != "" {
+		for _, layout := range dateLayouts {
+			if t, err := time.Parse(layout, j.Date); err == nil {
+				return t, true
+			}
+		}
+	}
+	if e := j.Epoch.Int64(); e > 0 {
+		return time.Unix(e, 0).UTC(), true
+	}
+	return time.Time{}, false
 }
 
 func hasTag(tags []string, want string) bool {

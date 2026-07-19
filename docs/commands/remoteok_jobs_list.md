@@ -11,6 +11,7 @@ client-side over the live feed, so they compose freely:
   --search       case-insensitive keyword over position, company, description, and tags
   --company      case-insensitive substring over the company name
   --min-salary   keep jobs whose advertised salary_max is at least this amount
+  --since        keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw)
   --limit        cap the number of results
 
 Remote OK's Terms require a follow backlink to https://remoteok.com when you display
@@ -27,18 +28,22 @@ remoteok jobs list [flags]
   remoteok jobs list --tags golang,remote --min-salary 100000
   remoteok jobs list --search kubernetes -o json
   remoteok jobs list --company stripe -o csv
+  remoteok jobs list --since 7d --tag golang
+  remoteok jobs list --since 2026-07-12 -o json
   remoteok jobs list -o id | head
 ```
 
 ### Options
 
 ```
-      --company string   filter by company name (substring)
-  -h, --help             help for list
-      --min-salary int   keep jobs with salary_max ≥ this amount
-      --search string    keyword over position/company/description/tags
-      --tag strings      require this tag (repeatable); alias --tags
-      --tags strings     comma-separated tags to require (AND)
+      --company string        filter by company name (substring)
+  -h, --help                  help for list
+      --min-salary int        keep jobs with salary_max ≥ this amount
+      --posted-after string   alias for --since
+      --search string         keyword over position/company/description/tags
+      --since string          keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw, e.g. 7d, 2w)
+      --tag strings           require this tag (repeatable); alias --tags
+      --tags strings          comma-separated tags to require (AND)
 ```
 
 ### Options inherited from parent commands

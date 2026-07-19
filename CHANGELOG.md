@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-19
+
+### Added
+- `jobs list --since` (alias `--posted-after`) — a posting-date filter. Accepts an absolute
+  date `YYYY-MM-DD` or a relative window `Nd`/`Nw` (days/weeks, e.g. `7d`, `2w`) meaning
+  "posted within the last N days/weeks". Keeps jobs whose `date` is on/after the threshold and
+  composes (AND) with the existing client-side filters.
+
 ## [0.1.0] - 2026-07-18
 
 ### Added

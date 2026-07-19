@@ -39,7 +39,8 @@ that touches the command surface or a documented behavior — not just `make che
   `api.DefaultUserAgent`, overridable via `--user-agent` / `REMOTEOK_USER_AGENT` /
   `config set user_agent`.
 - **Filtering is client-side and authoritative** (`--tag/--tags` AND, `--search`,
-  `--company`, `--min-salary`); a single `--tag` is also sent as `?tags=` for payload size.
+  `--company`, `--min-salary`, `--since`/`--posted-after`); a single `--tag` is also sent as
+  `?tags=` for payload size.
 - **`jobs get <id>`** selects over the feed (no per-id endpoint); an aged-out id is not found.
 - Text fields keep HTML entities verbatim so json/yaml/csv stay byte-faithful.
 

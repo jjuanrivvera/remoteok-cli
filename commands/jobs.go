@@ -3,6 +3,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -28,6 +32,7 @@ func init() {
 
 func newJobsListCmd(d *deps) *cobra.Command {
 	var opts api.JobListOptions
+	var sinceRaw string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent remote jobs (newest first)",
@@ -38,6 +43,7 @@ client-side over the live feed, so they compose freely:
   --search       case-insensitive keyword over position, company, description, and tags
   --company      case-insensitive substring over the company name
   --min-salary   keep jobs whose advertised salary_max is at least this amount
+  --since        keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw)
   --limit        cap the number of results
 
 Remote OK's Terms require a follow backlink to https://remoteok.com when you display
@@ -46,11 +52,16 @@ their data; a Source attribution is printed on stderr (suppress with --quiet).`,
   remoteok jobs list --tags golang,remote --min-salary 100000
   remoteok jobs list --search kubernetes -o json
   remoteok jobs list --company stripe -o csv
+  remoteok jobs list --since 7d --tag golang
+  remoteok jobs list --since 2026-07-12 -o json
   remoteok jobs list -o id | head`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, _, err := d.getAPIClient()
 			if err != nil {
+				return err
+			}
+			if opts.Since, err = parseSince(sinceRaw); err != nil {
 				return err
 			}
 			opts.Limit = d.gf.limit
@@ -73,7 +84,41 @@ their data; a Source attribution is printed on stderr (suppress with --quiet).`,
 	cmd.Flags().StringVar(&opts.Search, "search", "", "keyword over position/company/description/tags")
 	cmd.Flags().StringVar(&opts.Company, "company", "", "filter by company name (substring)")
 	cmd.Flags().Int64Var(&opts.MinSalary, "min-salary", 0, "keep jobs with salary_max ≥ this amount")
+	cmd.Flags().StringVar(&sinceRaw, "since", "", "keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw, e.g. 7d, 2w)")
+	cmd.Flags().StringVar(&sinceRaw, "posted-after", "", "alias for --since")
 	return annotate(cmd, kindRead)
+}
+
+// relSinceRe matches the relative --since shorthand: N days (Nd) or N weeks (Nw).
+var relSinceRe = regexp.MustCompile(`^([0-9]+)([dw])$`)
+
+// parseSince turns a --since value into an absolute lower-bound instant, relative to now.
+// It accepts an absolute date (YYYY-MM-DD, interpreted as that day's 00:00 UTC) or a
+// relative window Nd/Nw (posted within the last N days/weeks). An empty value means no
+// filter. Errors are actionable so a mistyped value tells the user the exact grammar.
+func parseSince(v string) (time.Time, error) { return parseSinceAt(v, time.Now()) }
+
+func parseSinceAt(v string, now time.Time) (time.Time, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return time.Time{}, nil
+	}
+	if m := relSinceRe.FindStringSubmatch(v); m != nil {
+		n, err := strconv.Atoi(m[1])
+		if err != nil { // unreachable: the regex guarantees digits, but never trust silently
+			return time.Time{}, fmt.Errorf("invalid --since %q: %w", v, err)
+		}
+		days := n
+		if m[2] == "w" {
+			days = n * 7
+		}
+		return now.AddDate(0, 0, -days), nil
+	}
+	if t, err := time.Parse("2006-01-02", v); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf(
+		"invalid --since %q: want an absolute date YYYY-MM-DD (e.g. 2026-07-12) or a relative window Nd/Nw (e.g. 7d, 2w)", v)
 }
 
 func newJobsGetCmd(d *deps) *cobra.Command {

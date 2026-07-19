@@ -75,6 +75,10 @@ remoteok jobs list --search kubernetes -o json
 # Filter by company, export CSV
 remoteok jobs list --company stripe -o csv
 
+# Only postings from the last week (relative), or since an absolute date
+remoteok jobs list --since 7d --tag golang
+remoteok jobs list --since 2026-07-12 -o json
+
 # One job by id (from the current feed)
 remoteok jobs get 1135010 -o json
 
@@ -101,6 +105,7 @@ remoteok jobs list --tag golang --dry-run
 | `--search` | Keyword over position, company, description, and tags |
 | `--company` | Substring over the company name |
 | `--min-salary` | Keep jobs whose advertised `salary_max` clears the amount |
+| `--since` / `--posted-after` | Keep jobs posted on/after a date (`YYYY-MM-DD`) or window (`Nd`/`Nw`, e.g. `7d`, `2w`) |
 | `--limit` | Cap the number of results |
 
 All filters are applied client-side over the live feed, so they compose freely.

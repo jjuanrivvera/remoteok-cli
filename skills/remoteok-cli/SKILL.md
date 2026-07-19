@@ -30,7 +30,7 @@ backlink. The CLI prints a `Source: Remote OK` reminder on stderr.
    filtering for you.
 2. **Emit machine output** for downstream steps: `-o json`, `-o csv`, or `-o id`.
 3. **Filters compose** and are AND-ed: `--tag`/`--tags`, `--search`, `--company`,
-   `--min-salary`, `--limit`.
+   `--min-salary`, `--since`/`--posted-after`, `--limit`.
 4. **`jobs get <id>` reads from the current feed** — an old id may have aged out.
 
 ## Workflow (discover → inspect → hand off)
@@ -39,9 +39,10 @@ backlink. The CLI prints a `Source: Remote OK` reminder on stderr.
 # 1. Discover — recent Go jobs paying ≥120k, as JSON
 remoteok jobs list --tag golang --min-salary 120000 -o json
 
-# 2. Narrow by keyword or company
+# 2. Narrow by keyword, company, or how recent (last N days/weeks or a date)
 remoteok jobs list --search kubernetes -o json
 remoteok jobs list --company stripe -o csv
+remoteok jobs list --since 7d --tag golang -o json
 
 # 3. Inspect one listing
 remoteok jobs get 1135010 -o json
@@ -59,6 +60,7 @@ remoteok jobs list --tag golang -o id | head
 | Keyword search | `remoteok jobs list --search <kw> -o json` |
 | By company | `remoteok jobs list --company <name>` |
 | Salary floor | `remoteok jobs list --min-salary 120000` |
+| Posted recently | `remoteok jobs list --since 7d` (or `--since 2026-07-12`) |
 | One job | `remoteok jobs get <id> -o json` |
 | Just ids | `remoteok jobs list -o id` |
 | Custom filter | `remoteok jobs list --jq '.[].company'` |
