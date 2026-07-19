@@ -1,0 +1,20 @@
+site_name: remoteok
+site_description: A read-only CLI for the Remote OK jobs API
+site_url: https://jjuanrivvera.github.io/remoteok-cli/
+repo_url: https://github.com/jjuanrivvera/remoteok-cli
+repo_name: jjuanrivvera/remoteok-cli
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle: { icon: material/brightness-7, name: Dark mode }
+    - scheme: slate
+      primary: indigo
+      toggle: { icon: material/brightness-4, name: Light mode }
+  features: [navigation.sections, content.code.copy]
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Command reference: commands/remoteok.md
+markdown_extensions: [admonition, pymdownx.superfences, pymdownx.highlight]

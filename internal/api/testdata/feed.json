@@ -1,0 +1,54 @@
+[
+  {
+    "last_updated": 1784422736,
+    "legal": "API Terms of Service: Please link back (with follow, and without nofollow!) to the URL on Remote OK and mention Remote OK as a source, so we get traffic back from your site. If you do not we'll have to suspend API access."
+  },
+  {
+    "slug": "remote-senior-go-engineer-acme-1",
+    "id": "1001",
+    "epoch": 1784341832,
+    "date": "2026-07-18T02:30:32+00:00",
+    "company": "Acme Corp",
+    "company_logo": "",
+    "position": "Senior Go Engineer",
+    "tags": ["golang", "backend", "remote", "kubernetes"],
+    "description": "We build distributed systems in Go and Kubernetes.",
+    "location": "Worldwide",
+    "salary_min": 120000,
+    "salary_max": 180000,
+    "url": "https://remoteOK.com/remote-jobs/1001",
+    "apply_url": "https://remoteOK.com/remote-jobs/1001",
+    "logo": "",
+    "original": null
+  },
+  {
+    "slug": "remote-frontend-dev-globex-2",
+    "id": 1002,
+    "epoch": 1784241832,
+    "date": "2026-07-17T02:30:32+00:00",
+    "company": "Globex &amp; Sons",
+    "position": "Frontend Developer",
+    "tags": ["javascript", "react", "remote"],
+    "description": "React and TypeScript for a design-led product.",
+    "location": "Europe",
+    "salary_min": "70000",
+    "salary_max": "95000",
+    "url": "https://remoteOK.com/remote-jobs/1002",
+    "apply_url": "https://remoteOK.com/remote-jobs/1002"
+  },
+  {
+    "slug": "remote-golang-sre-initech-3",
+    "id": "1003",
+    "epoch": 1784141832,
+    "date": "2026-07-16T02:30:32+00:00",
+    "company": "Initech",
+    "position": "Platform SRE (Go)",
+    "tags": ["golang", "devops", "remote", "aws"],
+    "description": "Own the platform: Go tooling, Terraform, on-call.",
+    "location": "US only",
+    "salary_min": 140000,
+    "salary_max": 200000,
+    "url": "https://remoteOK.com/remote-jobs/1003",
+    "apply_url": "https://remoteOK.com/remote-jobs/1003"
+  }
+]

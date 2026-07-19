@@ -1,0 +1,194 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/url"
+	"sort"
+	"strings"
+)
+
+// Job is one Remote OK listing. Field names mirror the API's JSON keys exactly (see
+// DECISIONS.md for the confirmed live schema). Values are kept verbatim from the API — HTML
+// entities in text fields (e.g. "&amp;") are preserved so json/yaml/csv stay byte-faithful.
+type Job struct {
+	ID          ID       `json:"id,omitempty"`
+	Slug        string   `json:"slug,omitempty"`
+	Position    string   `json:"position,omitempty"`
+	Company     string   `json:"company,omitempty"`
+	CompanyLogo string   `json:"company_logo,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Location    string   `json:"location,omitempty"`
+	SalaryMin   Int      `json:"salary_min,omitempty"`
+	SalaryMax   Int      `json:"salary_max,omitempty"`
+	Date        string   `json:"date,omitempty"`
+	Epoch       Int      `json:"epoch,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	ApplyURL    string   `json:"apply_url,omitempty"`
+	Logo        string   `json:"logo,omitempty"`
+}
+
+// Legal is the FIRST element of the Remote OK feed: an attribution/terms notice, not a job.
+// Remote OK's Terms of Service require a follow backlink to remoteok.com when their data is
+// displayed, so the CLI surfaces this (see the `jobs` commands and README).
+type Legal struct {
+	Legal       string `json:"legal,omitempty"`
+	LastUpdated Int    `json:"last_updated,omitempty"`
+}
+
+// isLegal reports whether a raw feed element is the legal/attribution notice rather than a
+// job. Detection is by the presence of a "legal" key AND the absence of a job id, so it is
+// robust whether or not the notice stays the literal first element.
+func isLegal(raw json.RawMessage) bool {
+	var probe struct {
+		Legal *string          `json:"legal"`
+		ID    *json.RawMessage `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return false
+	}
+	return probe.Legal != nil && probe.ID == nil
+}
+
+// JobListOptions filter and shape a `jobs list` request. All filtering is client-side over
+// the full feed (see DECISIONS.md): Remote OK's server-side ?tags= filter returns loosely
+// relevant results, so the CLI treats client-side filtering as authoritative and only uses
+// ?tags= as a payload optimization when exactly one tag is requested.
+type JobListOptions struct {
+	Tags      []string // ALL must be present on a job (AND), case-insensitive
+	Search    string   // substring over position/company/description/tags, case-insensitive
+	Company   string   // substring over company, case-insensitive
+	MinSalary int64    // keep jobs whose salary_max ≥ this (0 = no filter)
+	Limit     int      // cap the number of returned jobs (0 = no cap)
+}
+
+// fetchFeed GETs /api and splits the response into the attribution notice and the jobs,
+// sorted newest-first by epoch. serverTag, when non-empty, is sent as ?tags= to reduce the
+// payload; results are still filtered client-side by the caller.
+func (c *Client) fetchFeed(ctx context.Context, serverTag string) ([]Job, *Legal, error) {
+	q := url.Values{}
+	if serverTag != "" {
+		q.Set("tags", serverTag)
+	}
+	var raw []json.RawMessage
+	if err := c.GetJSON(ctx, apiPath, q, &raw); err != nil {
+		return nil, nil, err
+	}
+
+	var jobs []Job
+	var legal *Legal
+	for _, el := range raw {
+		if isLegal(el) {
+			var l Legal
+			if json.Unmarshal(el, &l) == nil {
+				legal = &l
+			}
+			continue
+		}
+		var j Job
+		if err := json.Unmarshal(el, &j); err != nil {
+			// A single malformed element must not sink the whole feed.
+			continue
+		}
+		jobs = append(jobs, j)
+	}
+
+	// Newest-first by epoch is deterministic; a stable sort keeps equal-epoch feed order.
+	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].Epoch.Int64() > jobs[j].Epoch.Int64() })
+	return jobs, legal, nil
+}
+
+// Jobs fetches recent listings and applies the client-side filters in opts. It also returns
+// the Remote OK attribution notice so the caller can honor the backlink requirement.
+func (c *Client) Jobs(ctx context.Context, opts JobListOptions) ([]Job, *Legal, error) {
+	serverTag := ""
+	if len(opts.Tags) == 1 {
+		serverTag = opts.Tags[0]
+	}
+	jobs, legal, err := c.fetchFeed(ctx, serverTag)
+	if err != nil {
+		return nil, legal, err
+	}
+
+	filtered := jobs[:0]
+	for _, j := range jobs {
+		if !matches(j, opts) {
+			continue
+		}
+		filtered = append(filtered, j)
+	}
+	if opts.Limit > 0 && len(filtered) > opts.Limit {
+		filtered = filtered[:opts.Limit]
+	}
+	return filtered, legal, nil
+}
+
+// ErrJobNotFound is returned by GetJob when no listing in the feed has the given id.
+var ErrJobNotFound = errors.New("job not found in the current Remote OK feed")
+
+// GetJob returns the single listing with the given id from the current feed. Remote OK has
+// no per-id endpoint, so this fetches the feed and selects locally.
+func (c *Client) GetJob(ctx context.Context, id string) (*Job, *Legal, error) {
+	jobs, legal, err := c.fetchFeed(ctx, "")
+	if err != nil {
+		return nil, legal, err
+	}
+	// In dry-run the feed was never fetched (the curl was printed instead), so there is
+	// nothing to select — return cleanly rather than a spurious "not found".
+	if c.DryRun {
+		return nil, legal, nil
+	}
+	for i := range jobs {
+		if jobs[i].ID.String() == id {
+			return &jobs[i], legal, nil
+		}
+	}
+	return nil, legal, ErrJobNotFound
+}
+
+// matches reports whether a job satisfies every filter in opts.
+func matches(j Job, opts JobListOptions) bool {
+	for _, want := range opts.Tags {
+		if !hasTag(j.Tags, want) {
+			return false
+		}
+	}
+	if opts.Company != "" && !strings.Contains(strings.ToLower(j.Company), strings.ToLower(opts.Company)) {
+		return false
+	}
+	if opts.MinSalary > 0 && j.SalaryMax.Int64() < opts.MinSalary {
+		return false
+	}
+	if opts.Search != "" && !matchesSearch(j, opts.Search) {
+		return false
+	}
+	return true
+}
+
+func hasTag(tags []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	for _, t := range tags {
+		if strings.ToLower(t) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesSearch does a case-insensitive substring match of term over the searchable fields.
+func matchesSearch(j Job, term string) bool {
+	term = strings.ToLower(term)
+	if strings.Contains(strings.ToLower(j.Position), term) ||
+		strings.Contains(strings.ToLower(j.Company), term) ||
+		strings.Contains(strings.ToLower(j.Description), term) {
+		return true
+	}
+	for _, t := range j.Tags {
+		if strings.Contains(strings.ToLower(t), term) {
+			return true
+		}
+	}
+	return false
+}

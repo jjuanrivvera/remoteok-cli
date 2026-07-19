@@ -1,0 +1,21 @@
+{
+  "api": "Remote OK (jobs)",
+  "binary": "remoteok",
+  "base_url": "https://remoteok.com",
+  "docs_url": "https://remoteok.com/api",
+  "profile_flag": "profile",
+  "profile_noun": "profile",
+  "api_method_total": 1,
+  "api_method_source": "Remote OK public API — the documented surface is a single endpoint, GET https://remoteok.com/api (returns a JSON array; first element is a legal/attribution notice; optional ?tags=<tag> query filter). Enumerated by inspecting https://remoteok.com/api and the Remote OK API note, fetched 2026-07-18. There is no OpenAPI/Postman/llms.txt; this is the complete public surface.",
+  "coverage_note": "The single GET /api endpoint is fully wrapped by the read-only `jobs` resource: `jobs list` (feed + client-side --tag/--tags/--search/--company/--min-salary/--limit, with ?tags= as a server-side payload optimization) and `jobs get <id>` (select-by-id over the feed, since Remote OK has no per-id endpoint). Remote OK is unauthenticated and read-only — there are no write verbs to add.",
+  "resources": [
+    {
+      "name": "jobs",
+      "aliases": ["job"],
+      "endpoints": ["GET /api", "GET /api?tags={tag}"],
+      "verbs": ["list", "get"],
+      "read_only": true,
+      "fields": ["id", "slug", "position", "company", "company_logo", "tags", "description", "location", "salary_min", "salary_max", "date", "epoch", "url", "apply_url", "logo"]
+    }
+  ]
+}

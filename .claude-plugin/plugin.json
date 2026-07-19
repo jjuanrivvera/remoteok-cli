@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "remoteok-cli",
+  "version": "0.1.0",
+  "description": "Discover remote jobs from the Remote OK public API — read-only, machine-first (JSON/YAML/CSV/MCP).",
+  "author": { "name": "jjuanrivvera", "url": "https://github.com/jjuanrivvera" },
+  "homepage": "https://github.com/jjuanrivvera/remoteok-cli",
+  "repository": "https://github.com/jjuanrivvera/remoteok-cli",
+  "license": "MIT",
+  "skills": "./skills",
+  "keywords": ["remoteok", "jobs", "remote-work", "cli", "ai-agent"]
+}

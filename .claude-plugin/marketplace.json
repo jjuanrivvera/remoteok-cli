@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "remoteok",
+  "owner": { "name": "jjuanrivvera", "url": "https://github.com/jjuanrivvera" },
+  "plugins": [
+    {
+      "name": "remoteok-cli",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "Discover remote jobs from the Remote OK public API.",
+      "homepage": "https://github.com/jjuanrivvera/remoteok-cli",
+      "keywords": ["remoteok", "jobs", "remote-work", "cli", "ai-agent"]
+    }
+  ]
+}
