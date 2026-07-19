@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-18
+
 ### Added
 - Initial release of `remoteok`, a read-only CLI for the Remote OK jobs API.
 - `jobs list` — recent remote jobs (newest first) with client-side `--tag`/`--tags` (AND),
