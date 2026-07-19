@@ -103,16 +103,21 @@ func (c *Client) fetchFeed(ctx context.Context, serverTag string) ([]Job, *Legal
 }
 
 // Jobs fetches recent listings and applies the client-side filters in opts. It also returns
-// the Remote OK attribution notice so the caller can honor the backlink requirement.
-func (c *Client) Jobs(ctx context.Context, opts JobListOptions) ([]Job, *Legal, error) {
+// the Remote OK attribution notice so the caller can honor the backlink requirement, and the
+// count of listings that --min-salary dropped only because they publish no salary (see
+// countNoSalaryExcluded) so the CLI can explain a surprisingly small result set.
+func (c *Client) Jobs(ctx context.Context, opts JobListOptions) ([]Job, *Legal, int, error) {
 	serverTag := ""
 	if len(opts.Tags) == 1 {
 		serverTag = opts.Tags[0]
 	}
 	jobs, legal, err := c.fetchFeed(ctx, serverTag)
 	if err != nil {
-		return nil, legal, err
+		return nil, legal, 0, err
 	}
+
+	// Count before filtering: the loop below reuses the jobs backing array (jobs[:0]).
+	noSalaryExcluded := countNoSalaryExcluded(jobs, opts)
 
 	filtered := jobs[:0]
 	for _, j := range jobs {
@@ -124,7 +129,33 @@ func (c *Client) Jobs(ctx context.Context, opts JobListOptions) ([]Job, *Legal, 
 	if opts.Limit > 0 && len(filtered) > opts.Limit {
 		filtered = filtered[:opts.Limit]
 	}
-	return filtered, legal, nil
+	return filtered, legal, noSalaryExcluded, nil
+}
+
+// countNoSalaryExcluded reports how many listings the --min-salary filter drops SOLELY
+// because they publish no salary, as opposed to publishing one that fell below the bar.
+// Remote OK rarely publishes salary (usually a handful of listings per feed), so a
+// `--min-salary 80000` can silently discard almost the whole feed and look like "no matches".
+// The CLI surfaces this count as an on-stderr hint. Only listings that would otherwise satisfy
+// every OTHER filter are counted, and the result is 0 when --min-salary is unset — a job whose
+// exclusion is a genuine below-bar drop (it published a salary_max under the bar) is NOT
+// counted, keeping the hint honest.
+func countNoSalaryExcluded(jobs []Job, opts JobListOptions) int {
+	if opts.MinSalary <= 0 {
+		return 0
+	}
+	rest := opts
+	rest.MinSalary = 0 // isolate the "would pass if salary were ignored" set
+	n := 0
+	for _, j := range jobs {
+		if j.SalaryMax.Int64() > 0 {
+			continue // published a salary — any drop here is a real below-bar exclusion
+		}
+		if matches(j, rest) {
+			n++
+		}
+	}
+	return n
 }
 
 // ErrJobNotFound is returned by GetJob when no listing in the feed has the given id.

@@ -87,7 +87,7 @@ func (d *deps) runDoctor(cmd *cobra.Command) []doctorCheck {
 	add("base-url", true, c.BaseURL())
 	add("user-agent", true, uaSummary(c.UserAgent()))
 
-	jobs, _, err := c.Jobs(cmd.Context(), api.JobListOptions{Limit: 1})
+	jobs, _, _, err := c.Jobs(cmd.Context(), api.JobListOptions{Limit: 1})
 	if err != nil {
 		add("feed", false, err.Error())
 	} else {

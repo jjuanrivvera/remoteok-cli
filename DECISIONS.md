@@ -75,6 +75,35 @@ deterministic (cliwright GOAL.md §11). Never silently re-decide.
     `2026-07-12T00:00:00Z`; a same-day posting with any later time-of-day is kept (inclusive
     `>=`). Comparison is instant-vs-instant, so a timezone-bearing `date` is honored exactly.
 
+## `--min-salary` salary sparsity (revisited v0.1.2)
+
+15. **Remote OK rarely publishes salary → `--min-salary` semantics + stderr hint.** Verified
+    live 2026-07-19: only ~3 of 100 listings carry a non-null `salary_min`/`salary_max`. The
+    `--min-salary` filter keys on `salary_max` (`salary_max < bar` → drop), so any listing with
+    no published salary (`salary_max == 0`) is excluded — i.e. ~97% of the feed. A naive
+    `--min-salary 80000` therefore returns near-zero results, which reads as "no matching jobs"
+    rather than "almost nothing advertises a salary".
+    - **Decision (kept):** do NOT change the filter's drop-on-missing behavior. Silently keeping
+      no-salary listings would make `--min-salary` meaningless; dropping them is the honest,
+      predictable reading (same stance as `--since` on an undatable listing, §13).
+    - **Decision (added):** `jobs list` prints a one-line hint on **stderr** — same channel and
+      `--quiet` suppression as the attribution line —
+      `Note: --min-salary excluded N listing(s) with no published salary (Remote OK rarely
+      publishes salary).` It fires ONLY when `--min-salary` actually excluded ≥1 listing that
+      published no salary AND that would otherwise pass every other filter
+      (`countNoSalaryExcluded`). A genuine below-bar exclusion (a listing that DID publish a
+      `salary_max` under the bar) is not counted, so the hint stays accurate; it never appears
+      when `--min-salary` is unset or when nothing was dropped for missing salary.
+    - **Doc decision:** help text, README, and the SKILL cheatsheet frame `--min-salary` as a
+      narrowing pass over a broad query, not a primary filter.
+
+16. **`--tag` is Remote OK's fixed tag vocabulary; use `--search` for non-tag terms.** `--tag`
+    matches exact tags (`golang`, `react`, `devops`, `remote`, …). A term that is not a real tag
+    — an industry like `fintech`, a role, or a free keyword — matches nothing via `--tag`
+    (client-side AND over `tags[]`). The `jobs list` long help and `--tag` flag help direct such
+    terms to `--search` (which scans position/company/description/tags). No behavior change,
+    documentation only.
+
 ## Architecture decisions (determinism, §11)
 
 9. **Resource pattern — neither pure A nor B.** Remote OK is a *single read-only,

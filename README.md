@@ -110,6 +110,15 @@ remoteok jobs list --tag golang --dry-run
 
 All filters are applied client-side over the live feed, so they compose freely.
 
+**`--tag` matches Remote OK's fixed tag vocabulary** (e.g. `golang`, `react`, `devops`,
+`remote`). A term that is *not* a real tag — an industry like `fintech`, a role, or a free
+keyword — matches nothing via `--tag`; use `--search` for those instead.
+
+**Remote OK rarely publishes salary** (only a few listings per feed carry one), so
+`--min-salary` drops every listing with no published minimum — i.e. most of them. Use it to
+narrow a broad query, not as a primary filter. When it excludes listings for lack of a
+published salary, the CLI notes how many on stderr (suppress with `--quiet`).
+
 ## Configuration
 
 There are no secrets. Optional overrides live in `~/.remoteok-cli/config.yaml`

@@ -24,7 +24,7 @@ func serveFeed(t *testing.T, gotQuery *string) http.HandlerFunc {
 
 func TestJobs_SkipsLegalElementAndSortsByEpoch(t *testing.T) {
 	c := newTestClient(t, serveFeed(t, nil))
-	jobs, legal, err := c.Jobs(t.Context(), JobListOptions{})
+	jobs, legal, _, err := c.Jobs(t.Context(), JobListOptions{})
 	require.NoError(t, err)
 
 	// The leading legal/attribution element must NOT be parsed as a job.
@@ -47,7 +47,7 @@ func TestJobs_TagFilterANDServerSideOptimization(t *testing.T) {
 	c := newTestClient(t, serveFeed(t, &q))
 
 	// Single tag → sent server-side as ?tags= AND filtered client-side.
-	jobs, _, err := c.Jobs(t.Context(), JobListOptions{Tags: []string{"golang"}})
+	jobs, _, _, err := c.Jobs(t.Context(), JobListOptions{Tags: []string{"golang"}})
 	require.NoError(t, err)
 	assert.Equal(t, "tags=golang", q)
 	require.Len(t, jobs, 2)
@@ -57,7 +57,7 @@ func TestJobs_TagFilterANDServerSideOptimization(t *testing.T) {
 
 	// Two tags → AND semantics, no single server tag.
 	q = ""
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Tags: []string{"golang", "aws"}})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{Tags: []string{"golang", "aws"}})
 	require.NoError(t, err)
 	assert.Empty(t, q, "multi-tag requests are not narrowed server-side")
 	require.Len(t, jobs, 1)
@@ -68,25 +68,25 @@ func TestJobs_SearchCompanySalaryLimit(t *testing.T) {
 	c := newTestClient(t, serveFeed(t, nil))
 
 	// Search matches description/position/tags.
-	jobs, _, err := c.Jobs(t.Context(), JobListOptions{Search: "kubernetes"})
+	jobs, _, _, err := c.Jobs(t.Context(), JobListOptions{Search: "kubernetes"})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 	assert.Equal(t, ID("1001"), jobs[0].ID)
 
 	// Company substring (case-insensitive).
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Company: "initech"})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{Company: "initech"})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 	assert.Equal(t, ID("1003"), jobs[0].ID)
 
 	// Min salary keeps only jobs whose salary_max clears the bar.
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{MinSalary: 190000})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{MinSalary: 190000})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 	assert.Equal(t, ID("1003"), jobs[0].ID)
 
 	// Limit caps the result set.
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Limit: 2})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{Limit: 2})
 	require.NoError(t, err)
 	require.Len(t, jobs, 2)
 }
@@ -98,32 +98,96 @@ func TestJobs_SinceFilter(t *testing.T) {
 	// A threshold between the newest and the rest keeps only the recent listing and
 	// drops the older ones.
 	since := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
-	jobs, _, err := c.Jobs(t.Context(), JobListOptions{Since: since})
+	jobs, _, _, err := c.Jobs(t.Context(), JobListOptions{Since: since})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1, "only the 2026-07-18 listing clears the threshold")
 	assert.Equal(t, ID("1001"), jobs[0].ID)
 
 	// A boundary exactly on a posting instant is inclusive (>=).
 	since = time.Date(2026, 7, 17, 2, 30, 32, 0, time.UTC)
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{Since: since})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{Since: since})
 	require.NoError(t, err)
 	require.Len(t, jobs, 2)
 	assert.Equal(t, ID("1001"), jobs[0].ID)
 	assert.Equal(t, ID("1002"), jobs[1].ID)
 
 	// A zero Since is a no-op: every listing survives (composes with other filters).
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{})
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{})
 	require.NoError(t, err)
 	require.Len(t, jobs, 3)
 
 	// Since AND tag compose: golang jobs (1001,1003) intersected with posted >= 07-17.
-	jobs, _, err = c.Jobs(t.Context(), JobListOptions{
+	jobs, _, _, err = c.Jobs(t.Context(), JobListOptions{
 		Tags:  []string{"golang"},
 		Since: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC),
 	})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 	assert.Equal(t, ID("1001"), jobs[0].ID)
+}
+
+func TestCountNoSalaryExcluded(t *testing.T) {
+	// A small hand-built feed: two listings publish a salary, two do not. Only the no-salary
+	// listings that would otherwise pass every filter must be counted.
+	golangPaid := Job{ID: "p1", Tags: []string{"golang"}, Company: "Acme", SalaryMax: Int(120000)}
+	golangUnpaid := Job{ID: "u1", Tags: []string{"golang"}, Company: "Acme"}
+	reactUnpaid := Job{ID: "u2", Tags: []string{"react"}, Company: "Globex"}
+	belowBarPaid := Job{ID: "p2", Tags: []string{"golang"}, Company: "Initech", SalaryMax: Int(50000)}
+	jobs := []Job{golangPaid, golangUnpaid, reactUnpaid, belowBarPaid}
+
+	cases := []struct {
+		name string
+		opts JobListOptions
+		want int
+	}{
+		{"min-salary unset counts nothing", JobListOptions{}, 0},
+		{
+			// u1 and u2 have no salary and pass (no other filter); the two paid ones are
+			// excluded for having a salary (one clears the bar, one below it) — not counted.
+			"counts every no-salary listing that passes other filters",
+			JobListOptions{MinSalary: 80000},
+			2,
+		},
+		{
+			// Only golang listings are eligible; of those only u1 lacks a salary.
+			"respects other filters — tag narrows the no-salary set",
+			JobListOptions{MinSalary: 80000, Tags: []string{"golang"}},
+			1,
+		},
+		{
+			// A tag that no listing carries: nothing would pass, so nothing is a no-salary drop.
+			"no other-filter matches → zero",
+			JobListOptions{MinSalary: 80000, Tags: []string{"rust"}},
+			0,
+		},
+		{
+			// belowBarPaid publishes a salary under the bar: a genuine below-bar exclusion,
+			// which the hint must NOT attribute to missing salary.
+			"below-bar published salary is not a no-salary exclusion",
+			JobListOptions{MinSalary: 80000, Company: "Initech"},
+			0,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, countNoSalaryExcluded(jobs, tc.opts))
+		})
+	}
+}
+
+func TestJobs_ReturnsNoSalaryExcludedCount(t *testing.T) {
+	// The fixture's three listings all publish a salary, so a bar under all of them excludes
+	// nobody for missing salary even though it is set.
+	c := newTestClient(t, serveFeed(t, nil))
+	_, _, excluded, err := c.Jobs(t.Context(), JobListOptions{MinSalary: 1})
+	require.NoError(t, err)
+	assert.Equal(t, 0, excluded, "every fixture listing publishes a salary")
+
+	// A bar above every published salary_max drops all three — all as real below-bar drops,
+	// none for missing salary.
+	_, _, excluded, err = c.Jobs(t.Context(), JobListOptions{MinSalary: 10_000_000})
+	require.NoError(t, err)
+	assert.Equal(t, 0, excluded)
 }
 
 func TestJobPostedAt(t *testing.T) {
@@ -159,7 +223,7 @@ func TestJobs_MalformedElementSkipped(t *testing.T) {
 		// A legal notice, a good job, and a junk element that must be skipped.
 		_, _ = w.Write([]byte(`[{"legal":"x"},{"id":"9","position":"OK"},{"id":{"bad":1}}]`))
 	})
-	jobs, _, err := c.Jobs(t.Context(), JobListOptions{})
+	jobs, _, _, err := c.Jobs(t.Context(), JobListOptions{})
 	require.NoError(t, err)
 	require.Len(t, jobs, 1)
 	assert.Equal(t, ID("9"), jobs[0].ID)

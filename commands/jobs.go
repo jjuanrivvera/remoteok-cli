@@ -46,6 +46,15 @@ client-side over the live feed, so they compose freely:
   --since        keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw)
   --limit        cap the number of results
 
+--tag matches Remote OK's fixed tag vocabulary (e.g. golang, react, devops, remote). A term
+that is NOT a real tag — an industry like fintech, a role, or a free keyword — matches nothing
+via --tag; use --search for those instead.
+
+Remote OK rarely publishes salary (only a few listings per feed carry one), so --min-salary
+drops every listing without a published minimum — i.e. most of them. Use it to narrow a broad
+query, not as a primary filter; when it excludes listings for lack of a published salary the
+CLI notes how many on stderr (suppress with --quiet).
+
 Remote OK's Terms require a follow backlink to https://remoteok.com when you display
 their data; a Source attribution is printed on stderr (suppress with --quiet).`,
 		Example: `  remoteok jobs list --tag golang --limit 20
@@ -65,7 +74,7 @@ their data; a Source attribution is printed on stderr (suppress with --quiet).`,
 				return err
 			}
 			opts.Limit = d.gf.limit
-			jobs, legal, err := c.Jobs(cmd.Context(), opts)
+			jobs, legal, noSalaryExcluded, err := c.Jobs(cmd.Context(), opts)
 			if err != nil {
 				return err
 			}
@@ -76,14 +85,15 @@ their data; a Source attribution is printed on stderr (suppress with --quiet).`,
 				return err
 			}
 			printAttribution(cmd, d, legal)
+			printMinSalaryHint(cmd, d, noSalaryExcluded)
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVar(&opts.Tags, "tag", nil, "require this tag (repeatable); alias --tags")
+	cmd.Flags().StringSliceVar(&opts.Tags, "tag", nil, "require this Remote OK tag (repeatable; alias --tags); use --search for non-tag terms")
 	cmd.Flags().StringSliceVar(&opts.Tags, "tags", nil, "comma-separated tags to require (AND)")
 	cmd.Flags().StringVar(&opts.Search, "search", "", "keyword over position/company/description/tags")
 	cmd.Flags().StringVar(&opts.Company, "company", "", "filter by company name (substring)")
-	cmd.Flags().Int64Var(&opts.MinSalary, "min-salary", 0, "keep jobs with salary_max ≥ this amount")
+	cmd.Flags().Int64Var(&opts.MinSalary, "min-salary", 0, "keep jobs with salary_max ≥ this; Remote OK rarely publishes salary, so this drops most listings — pair it with a broad query")
 	cmd.Flags().StringVar(&sinceRaw, "since", "", "keep jobs posted on/after a date (YYYY-MM-DD) or window (Nd/Nw, e.g. 7d, 2w)")
 	cmd.Flags().StringVar(&sinceRaw, "posted-after", "", "alias for --since")
 	return annotate(cmd, kindRead)
@@ -162,6 +172,21 @@ func printAttribution(cmd *cobra.Command, d *deps, legal *api.Legal) {
 		return
 	}
 	fmt.Fprintln(cmd.ErrOrStderr(), "Source: Remote OK — https://remoteok.com (please keep a follow backlink when displaying these jobs)")
+}
+
+// printMinSalaryHint explains a surprisingly small --min-salary result: Remote OK rarely
+// publishes salary, so the filter silently discards every listing with no published minimum.
+// It fires only when --min-salary actually excluded one or more no-salary listings
+// (noSalaryExcluded is already 0 when --min-salary is unset — see countNoSalaryExcluded), so
+// it never appears for an ordinary query. Same stderr channel and --quiet suppression as the
+// attribution line, keeping stdout pipe-clean.
+func printMinSalaryHint(cmd *cobra.Command, d *deps, noSalaryExcluded int) {
+	if d.gf.quiet || noSalaryExcluded == 0 {
+		return
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"Note: --min-salary excluded %d listing(s) with no published salary (Remote OK rarely publishes salary).\n",
+		noSalaryExcluded)
 }
 
 // rawJobs normalizes a job slice into one JSON array for the renderer. A nil slice renders

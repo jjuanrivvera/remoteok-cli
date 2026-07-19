@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-19
+
+### Added
+- `jobs list` now prints a one-line hint on stderr when `--min-salary` excluded one or more
+  listings that publish no salary (same channel and `--quiet` suppression as the attribution
+  line): `Note: --min-salary excluded N listing(s) with no published salary (Remote OK rarely
+  publishes salary).` — so a near-empty `--min-salary` result is not mistaken for "no matches".
+
+### Documentation
+- Documented that Remote OK rarely publishes salary, so `--min-salary` drops every listing
+  without a published minimum (most of them) — pair it with a broad query, not as a primary
+  filter (help text, README, SKILL cheatsheet, DECISIONS).
+- Documented that `--tag` matches Remote OK's fixed tag vocabulary; for non-tag terms
+  (industries like `fintech`, roles, keywords) use `--search` instead.
+
 ## [0.1.1] - 2026-07-19
 
 ### Added

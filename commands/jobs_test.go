@@ -175,6 +175,66 @@ func TestJobsList_QuietSuppressesAttribution(t *testing.T) {
 	assert.NotContains(t, errOut, "Source: Remote OK")
 }
 
+// noSalaryFeedJSON has the legal element plus three listings, only one of which publishes a
+// salary, so a --min-salary query exercises the no-salary exclusion hint.
+const noSalaryFeedJSON = `[
+  {"last_updated":1784422736,"legal":"Please link back (with follow!) to Remote OK as a source."},
+  {"id":"2001","epoch":1784341832,"date":"2026-07-18","company":"Acme","position":"Go Engineer","tags":["golang"],"salary_min":120000,"salary_max":180000},
+  {"id":"2002","epoch":1784241832,"date":"2026-07-17","company":"Globex","position":"React Dev","tags":["react"]},
+  {"id":"2003","epoch":1784141832,"date":"2026-07-16","company":"Initech","position":"SRE","tags":["golang"]}
+]`
+
+func serveNoSalaryFeed() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(noSalaryFeedJSON))
+	}
+}
+
+func TestJobsList_MinSalaryNoSalaryHint(t *testing.T) {
+	const note = "Note: --min-salary excluded"
+
+	t.Run("fires on stderr when min-salary drops no-salary listings", func(t *testing.T) {
+		e := newEnv(t, serveNoSalaryFeed())
+		// Bar above the one published salary_max: 2001 is a real below-bar drop, while 2002 and
+		// 2003 are dropped for having no published salary — exactly what the hint reports.
+		out, errOut, err := e.run("jobs", "list", "--min-salary", "200000", "-o", "id")
+		require.NoError(t, err)
+		assert.Empty(t, strings.TrimSpace(out), "no listing clears the bar")
+		assert.Contains(t, errOut, note)
+		assert.Contains(t, errOut, "2 listing(s) with no published salary")
+		// The hint shares the stderr channel with the attribution but never leaks to stdout.
+		assert.NotContains(t, out, note)
+		assert.Contains(t, errOut, "Source: Remote OK")
+	})
+
+	t.Run("does not fire when min-salary is unset", func(t *testing.T) {
+		e := newEnv(t, serveNoSalaryFeed())
+		_, errOut, err := e.run("jobs", "list", "-o", "id")
+		require.NoError(t, err)
+		assert.NotContains(t, errOut, note)
+	})
+
+	t.Run("does not fire when nothing was dropped for missing salary", func(t *testing.T) {
+		// Only listing 2001 publishes a salary; a low bar keeps it and drops no no-salary
+		// listing FOR the salary reason (2002/2003 still have no salary but the bar is met by
+		// the one paid listing — the no-salary ones are excluded, so the hint DOES fire here).
+		// To prove the negative we use the all-salaried default feed instead.
+		e := newEnv(t, nil)
+		_, errOut, err := e.run("jobs", "list", "--min-salary", "1", "-o", "id")
+		require.NoError(t, err)
+		assert.NotContains(t, errOut, note, "every default-feed listing publishes a salary")
+	})
+
+	t.Run("respects --quiet", func(t *testing.T) {
+		e := newEnv(t, serveNoSalaryFeed())
+		_, errOut, err := e.run("jobs", "list", "--min-salary", "200000", "--quiet")
+		require.NoError(t, err)
+		assert.NotContains(t, errOut, note)
+		assert.NotContains(t, errOut, "Source: Remote OK")
+	})
+}
+
 func TestJobsList_ServerError(t *testing.T) {
 	e := newEnv(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

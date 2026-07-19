@@ -31,13 +31,19 @@ backlink. The CLI prints a `Source: Remote OK` reminder on stderr.
 2. **Emit machine output** for downstream steps: `-o json`, `-o csv`, or `-o id`.
 3. **Filters compose** and are AND-ed: `--tag`/`--tags`, `--search`, `--company`,
    `--min-salary`, `--since`/`--posted-after`, `--limit`.
-4. **`jobs get <id>` reads from the current feed** — an old id may have aged out.
+4. **`--tag` is Remote OK's fixed vocabulary** (`golang`, `react`, `devops`, `remote`, …). For a
+   non-tag term — an industry like `fintech`, a role, or a keyword — use `--search`, not `--tag`.
+5. **`--min-salary` is a narrowing pass, not a primary filter.** Remote OK rarely publishes
+   salary, so it drops every listing with no published minimum (most of them) — pair it with a
+   broad query. It notes on stderr how many no-salary listings it excluded.
+6. **`jobs get <id>` reads from the current feed** — an old id may have aged out.
 
 ## Workflow (discover → inspect → hand off)
 
 ```sh
-# 1. Discover — recent Go jobs paying ≥120k, as JSON
-remoteok jobs list --tag golang --min-salary 120000 -o json
+# 1. Discover — recent Go jobs, as JSON (add --min-salary only to narrow; it drops the
+#    many listings that publish no salary)
+remoteok jobs list --tag golang -o json
 
 # 2. Narrow by keyword, company, or how recent (last N days/weeks or a date)
 remoteok jobs list --search kubernetes -o json
@@ -59,7 +65,8 @@ remoteok jobs list --tag golang -o id | head
 | Multiple tags (AND) | `remoteok jobs list --tags go,remote` |
 | Keyword search | `remoteok jobs list --search <kw> -o json` |
 | By company | `remoteok jobs list --company <name>` |
-| Salary floor | `remoteok jobs list --min-salary 120000` |
+| Industry / non-tag term | `remoteok jobs list --search fintech` (use `--search`, not `--tag`) |
+| Salary floor (rarely published) | `remoteok jobs list --search <kw> --min-salary 120000` (narrows a broad query; drops no-salary listings) |
 | Posted recently | `remoteok jobs list --since 7d` (or `--since 2026-07-12`) |
 | One job | `remoteok jobs get <id> -o json` |
 | Just ids | `remoteok jobs list -o id` |

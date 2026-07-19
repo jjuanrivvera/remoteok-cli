@@ -40,7 +40,7 @@ a default/bot UA; the CLI already ships a working default).`,
 				if err != nil {
 					return err
 				}
-				jobs, _, err := c.Jobs(cmd.Context(), api.JobListOptions{Limit: 1})
+				jobs, _, _, err := c.Jobs(cmd.Context(), api.JobListOptions{Limit: 1})
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "connectivity check failed: %v\n", err)
 					return err
