@@ -89,6 +89,7 @@ func TestDir_HomeDefault(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows, not HOME
 	dir, err := Dir()
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(home, ".remoteok-cli"), dir)
