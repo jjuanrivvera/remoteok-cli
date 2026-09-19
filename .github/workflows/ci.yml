@@ -1,6 +1,10 @@
 # CI — delegates to the fleet-canonical reusable workflow in jjuanrivvera/.github.
 # Change fleet-wide CI policy there, not here. Repo-specific inputs only live below.
 name: CI
+# Touched 2026-09-19 to re-register the workflow: this repo stopped firing CI from push
+# and pull_request entirely (only workflow_dispatch worked). wootctl had the identical
+# symptom and started firing again right after a PR that edited this same file, so the
+# edit itself appears to be what wakes Actions back up.
 
 on:
   push:
