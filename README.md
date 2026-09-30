@@ -15,6 +15,9 @@
 
 [Documentation](https://jjuanrivvera.github.io/remoteok-cli/) · [Command reference](https://jjuanrivvera.github.io/remoteok-cli/commands/remoteok/)
 
+
+![remoteok in action](assets/demo.gif)
+
 </div>
 
 A fast, scriptable, **read-only** command-line client for the [Remote OK](https://remoteok.com)
