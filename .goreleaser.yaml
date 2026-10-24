@@ -61,8 +61,8 @@ homebrew_casks:
     homepage: https://github.com/jjuanrivvera/remoteok-cli
     hooks:
       post:
-        install: |
-          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/remoteok"]
+        install_steps: |
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/remoteok"]
 
 scoops:
   - repository: { owner: jjuanrivvera, name: scoop-remoteok-cli, token: "{{ .Env.HOMEBREW_TAP_TOKEN }}" }
